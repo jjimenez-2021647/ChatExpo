@@ -4,7 +4,10 @@ import dotenv from 'dotenv'
 import { createClient } from '@libsql/client'
 import { Server } from 'socket.io'
 import { createServer } from 'node:http'
+import fetch from 'node-fetch'
+
 dotenv.config()
+
 //puerto
 const port = process.env.PORT ?? 3000
 //inicializacion de la app
@@ -19,6 +22,10 @@ const db = createClient({
     url: "libsql://chatexpo-jimenez.aws-us-east-1.turso.io",
     authToken: process.env.DB_TOKEN
 })
+
+// Daily.co API Key
+const DAILY_API_KEY = process.env.DAILY_API_KEY
+
 await db.execute(`
     CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -102,43 +109,51 @@ io.on('connection', async (socket) => {
         io.emit('audio message', audioData, result.lastInsertRowid.toString(), username, timestamp)
     })
 
-    // WebRTC - Señalización para llamadas
-    socket.on('call-request', () => {
+    // Crear sala de Daily.co
+    socket.on('create-call-room', async () => {
         const username = socket.handshake.auth.username ?? 'anonymous'
-        console.log(`${username} is requesting a call`)
-        socket.broadcast.emit('call-incoming', { from: socket.id, username })
-    })
-
-    socket.on('call-accept', ({ to }) => {
-        console.log(`Call accepted, signaling to ${to}`)
-        io.to(to).emit('call-accepted', { from: socket.id })
-    })
-
-    socket.on('call-reject', ({ to }) => {
-        console.log(`Call rejected`)
-        io.to(to).emit('call-rejected')
-    })
-
-    socket.on('webrtc-offer', ({ to, offer }) => {
-        console.log(`WebRTC offer sent to ${to}`)
-        io.to(to).emit('webrtc-offer', { from: socket.id, offer })
-    })
-
-    socket.on('webrtc-answer', ({ to, answer }) => {
-        console.log(`WebRTC answer sent to ${to}`)
-        io.to(to).emit('webrtc-answer', { from: socket.id, answer })
-    })
-
-    socket.on('webrtc-ice-candidate', ({ to, candidate }) => {
-        io.to(to).emit('webrtc-ice-candidate', { from: socket.id, candidate })
-    })
-
-    socket.on('call-end', ({ to }) => {
-        console.log(`Call ended`)
-        if (to) {
-            io.to(to).emit('call-ended')
+        
+        try {
+            const response = await fetch('https://api.daily.co/v1/rooms', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${DAILY_API_KEY}`
+                },
+                body: JSON.stringify({
+                    properties: {
+                        enable_screenshare: true,
+                        enable_chat: false,
+                        start_video_off: true,
+                        start_audio_off: false,
+                        max_participants: 10,
+                        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 2) // Expira en 2 horas
+                    }
+                })
+            })
+            
+            const room = await response.json()
+            
+            if (room.url) {
+                console.log('Sala creada:', room.url)
+                socket.emit('call-room-created', { 
+                    roomUrl: room.url,
+                    username 
+                })
+            } else {
+                console.error('Error creando sala:', room)
+                socket.emit('error', 'No se pudo crear la sala de llamada')
+            }
+        } catch (error) {
+            console.error('Error creando sala Daily:', error)
+            socket.emit('error', 'Error al crear la sala')
         }
-        socket.broadcast.emit('call-ended')
+    })
+
+    // Notificar llamada a todos
+    socket.on('notify-call', (roomUrl) => {
+        const username = socket.handshake.auth.username ?? 'anonymous'
+        socket.broadcast.emit('call-notification', { roomUrl, username })
     })
 
     if (!socket.recovered) { // <- recuperase los mensajes sin conexión
@@ -162,11 +177,14 @@ io.on('connection', async (socket) => {
         }
     }
 })
+
 app.use(logger('dev'))
 app.use(express.static('client'))
+
 app.get('/', (req, res) => {
     res.sendFile(process.cwd() + '/client/index.html')
-});
+})
+
 server.listen(port, () => {
     console.log(`Server running on port ${port}`)
 })

@@ -44,26 +44,18 @@ let mediaRecorder = null
 let audioChunks = []
 let isRecording = false
 
-// Variables para WebRTC
-let localStream = null
-let peerConnection = null
-let remoteSocketId = null
+// Variables para Daily.co
+let dailyCall = null
 let inCall = false
-
-const configuration = {
-    iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-    ]
-}
+let currentRoomUrl = null
 
 // Elementos del modal
 const callModalOverlay = document.getElementById('call-modal-overlay')
 const callerNameEl = document.getElementById('caller-name')
 const acceptCallBtn = document.getElementById('accept-call-btn')
 const rejectCallBtn = document.getElementById('reject-call-btn')
-
-let pendingCallFrom = null
+const callContainer = document.getElementById('call-container')
+const callFrame = document.getElementById('call-frame')
 
 // Formatea el timestamp como "Hoy HH:MM", "Ayer HH:MM" o "DD/MM/YYYY HH:MM"
 const formatTimestamp = (isoString) => {
@@ -255,189 +247,115 @@ micBtn.addEventListener('click', async () => {
     }
 })
 
-// ========== FUNCIONALIDAD DE LLAMADAS WebRTC ==========
-
-// Función para crear peer connection
-async function createPeerConnection() {
-    peerConnection = new RTCPeerConnection(configuration)
-
-    // Agregar tracks locales
-    localStream.getTracks().forEach(track => {
-        peerConnection.addTrack(track, localStream)
-    })
-
-    // Manejar ICE candidates
-    peerConnection.onicecandidate = (event) => {
-        if (event.candidate && remoteSocketId) {
-            socket.emit('webrtc-ice-candidate', {
-                to: remoteSocketId,
-                candidate: event.candidate
-            })
-        }
-    }
-
-    // Manejar stream remoto
-    peerConnection.ontrack = (event) => {
-        console.log('Remote track received')
-        const remoteAudio = new Audio()
-        remoteAudio.srcObject = event.streams[0]
-        remoteAudio.play()
-    }
-
-    return peerConnection
-}
+// ========== FUNCIONALIDAD DE LLAMADAS GRUPALES CON DAILY.CO ==========
 
 // Botón de llamada
 callBtn.addEventListener('click', async () => {
     if (!inCall) {
-        // Iniciar llamada
-        try {
-            localStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: true, 
-                video: false 
-            })
-            
-            inCall = true
-            callBtn.classList.add('in-call')
-            callBtn.textContent = '📵'
-            callBtn.title = 'Finalizar llamada'
-            
-            console.log('Solicitando llamada...')
-            socket.emit('call-request')
-            
-        } catch (error) {
-            console.error('Error al acceder al micrófono:', error)
-            alert('No se pudo acceder al micrófono para la llamada')
-            inCall = false
-        }
+        // Solicitar crear una sala
+        socket.emit('create-call-room')
     } else {
-        // Finalizar llamada
+        // Salir de la llamada
         endCall()
     }
 })
 
-// Llamada entrante - mostrar modal
-socket.on('call-incoming', async ({ from, username }) => {
-    pendingCallFrom = from
-    callerNameEl.textContent = username
-    callModalOverlay.classList.add('active')
+// Recibir URL de sala creada
+socket.on('call-room-created', ({ roomUrl, username }) => {
+    console.log('Sala creada:', roomUrl)
+    currentRoomUrl = roomUrl
+    
+    // Notificar a todos sobre la llamada
+    socket.emit('notify-call', roomUrl)
+    
+    // Unirse automáticamente
+    joinCall(roomUrl)
+})
+
+// Recibir notificación de llamada
+socket.on('call-notification', ({ roomUrl, username }) => {
+    if (!inCall) {
+        currentRoomUrl = roomUrl
+        callerNameEl.textContent = username
+        callModalOverlay.classList.add('active')
+    }
 })
 
 // Aceptar llamada
-acceptCallBtn.addEventListener('click', async () => {
+acceptCallBtn.addEventListener('click', () => {
     callModalOverlay.classList.remove('active')
-    
-    try {
-        localStream = await navigator.mediaDevices.getUserMedia({ 
-            audio: true, 
-            video: false 
-        })
-        
-        remoteSocketId = pendingCallFrom
-        inCall = true
-        callBtn.classList.add('in-call')
-        callBtn.textContent = '📵'
-        callBtn.title = 'Finalizar llamada'
-        
-        socket.emit('call-accept', { to: pendingCallFrom })
-        pendingCallFrom = null
-        
-    } catch (error) {
-        console.error('Error al acceder al micrófono:', error)
-        alert('No se pudo acceder al micrófono')
-        socket.emit('call-reject', { to: pendingCallFrom })
-        pendingCallFrom = null
+    if (currentRoomUrl) {
+        joinCall(currentRoomUrl)
     }
 })
 
 // Rechazar llamada
 rejectCallBtn.addEventListener('click', () => {
     callModalOverlay.classList.remove('active')
-    socket.emit('call-reject', { to: pendingCallFrom })
-    pendingCallFrom = null
+    currentRoomUrl = null
 })
 
-// Llamada aceptada
-socket.on('call-accepted', async ({ from }) => {
-    console.log('Llamada aceptada')
-    remoteSocketId = from
-    
-    await createPeerConnection()
-    
-    // Crear y enviar offer
-    const offer = await peerConnection.createOffer()
-    await peerConnection.setLocalDescription(offer)
-    
-    socket.emit('webrtc-offer', {
-        to: remoteSocketId,
-        offer: offer
-    })
-})
-
-// Llamada rechazada
-socket.on('call-rejected', () => {
-    alert('Llamada rechazada')
-    endCall()
-})
-
-// Recibir offer
-socket.on('webrtc-offer', async ({ from, offer }) => {
-    console.log('Offer recibida')
-    remoteSocketId = from
-    
-    await createPeerConnection()
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(offer))
-    
-    // Crear y enviar answer
-    const answer = await peerConnection.createAnswer()
-    await peerConnection.setLocalDescription(answer)
-    
-    socket.emit('webrtc-answer', {
-        to: remoteSocketId,
-        answer: answer
-    })
-})
-
-// Recibir answer
-socket.on('webrtc-answer', async ({ from, answer }) => {
-    console.log('Answer recibida')
-    await peerConnection.setRemoteDescription(new RTCSessionDescription(answer))
-})
-
-// Recibir ICE candidate
-socket.on('webrtc-ice-candidate', async ({ from, candidate }) => {
-    if (peerConnection) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate))
+// Función para unirse a una llamada
+async function joinCall(roomUrl) {
+    try {
+        inCall = true
+        callBtn.classList.add('in-call')
+        callBtn.textContent = '📵'
+        callBtn.title = 'Salir de la llamada'
+        
+        // Mostrar contenedor de llamada
+        callContainer.style.display = 'block'
+        
+        // Crear instancia de Daily
+        dailyCall = window.DailyIframe.createFrame(callFrame, {
+            showLeaveButton: true,
+            showFullscreenButton: true,
+            iframeStyle: {
+                width: '100%',
+                height: '100%',
+                border: '0'
+            }
+        })
+        
+        // Eventos de Daily
+        dailyCall.on('left-meeting', () => {
+            endCall()
+        })
+        
+        dailyCall.on('error', (error) => {
+            console.error('Daily error:', error)
+            alert('Error en la llamada')
+            endCall()
+        })
+        
+        // Unirse a la sala
+        await dailyCall.join({ 
+            url: roomUrl,
+            userName: myUsername
+        })
+        
+        console.log('Unido a la llamada')
+        
+    } catch (error) {
+        console.error('Error al unirse a la llamada:', error)
+        alert('No se pudo unir a la llamada')
+        endCall()
     }
-})
-
-// Llamada terminada
-socket.on('call-ended', () => {
-    console.log('Llamada terminada por el otro usuario')
-    endCall()
-})
+}
 
 // Función para terminar llamada
 function endCall() {
     console.log('Finalizando llamada...')
     
-    if (localStream) {
-        localStream.getTracks().forEach(track => track.stop())
-        localStream = null
+    if (dailyCall) {
+        dailyCall.destroy()
+        dailyCall = null
     }
     
-    if (peerConnection) {
-        peerConnection.close()
-        peerConnection = null
-    }
-    
-    if (remoteSocketId) {
-        socket.emit('call-end', { to: remoteSocketId })
-        remoteSocketId = null
-    }
-    
+    callContainer.style.display = 'none'
+    currentRoomUrl = null
     inCall = false
     callBtn.classList.remove('in-call')
     callBtn.textContent = '📞'
-    callBtn.title = 'Iniciar llamada'
+    callBtn.title = 'Iniciar llamada grupal'
 }
