@@ -5,18 +5,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ExpoChat</title>
   <link rel="stylesheet" href="./styles/index.css">
-  <!-- Daily.co SDK - IMPORTANTE: sin crossorigin y antes del script principal -->
-  <script src="https://unpkg.com/@daily-co/daily-js"></script>
+  <!-- Jitsi Meet API -->
+  <script src="https://meet.jit.si/external_api.js"></script>
 </head>
 <body>
   <section id="chat">
+    <!-- Header con título y botón de llamada -->
     <div class="chat-header">
       <span class="chat-title">ExpoChat</span>
       <button id="call-btn" class="call-btn" title="Iniciar llamada grupal">
         📞
       </button>
     </div>
-    <ul id="messages"></ul>
+
+    <!-- Tabs de navegación -->
+    <div class="tabs-container">
+      <button class="tab-btn active" data-tab="messages">
+        💬 Mensajes
+      </button>
+      <button class="tab-btn" data-tab="call" id="call-tab" style="display: none;">
+        📞 Llamada
+        <span class="call-indicator"></span>
+      </button>
+    </div>
+
+    <!-- Contenedor de vistas -->
+    <div class="views-container">
+      <!-- Vista de Mensajes -->
+      <div class="view active" id="messages-view">
+        <ul id="messages"></ul>
+      </div>
+
+      <!-- Vista de Llamada -->
+      <div class="view" id="call-view">
+        <div id="call-frame"></div>
+      </div>
+    </div>
+
+    <!-- Form de mensajes -->
     <form id="form">
       <button type="button" id="attach-btn" class="icon-btn" title="Adjuntar imagen">
         📎
@@ -49,15 +75,6 @@
         </button>
       </div>
     </div>
-  </div>
-  
-  <!-- Contenedor para la llamada -->
-  <div id="call-container" class="call-container">
-    <div class="call-header">
-      <span>Llamada en progreso</span>
-      <button id="end-call-btn" class="end-call-btn">Colgar</button>
-    </div>
-    <div id="call-frame"></div>
   </div>
   
   <script type="module" src="./scripts/indexClient.js"></script>

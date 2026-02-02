@@ -4,7 +4,6 @@ import dotenv from 'dotenv'
 import { createClient } from '@libsql/client'
 import { Server } from 'socket.io'
 import { createServer } from 'node:http'
-import fetch from 'node-fetch'
 
 dotenv.config()
 
@@ -22,21 +21,6 @@ const db = createClient({
     url: "libsql://chatexpo-jimenez.aws-us-east-1.turso.io",
     authToken: process.env.DB_TOKEN
 })
-
-// Daily.co API Key
-const DAILY_API_KEY = process.env.DAILY_API_KEY
-
-// LOGGING DE INICIO - Verificar configuración
-console.log('='.repeat(60))
-console.log('🚀 INICIANDO SERVIDOR EXPOCHAT')
-console.log('='.repeat(60))
-console.log('📍 Puerto:', port)
-console.log('🔑 DB Token:', process.env.DB_TOKEN ? '✅ Configurado' : '❌ NO configurado')
-console.log('🔑 Daily API Key:', DAILY_API_KEY ? '✅ Configurado' : '❌ NO configurado')
-if (DAILY_API_KEY) {
-    console.log('   Primeros caracteres:', DAILY_API_KEY.substring(0, 10) + '...')
-}
-console.log('='.repeat(60))
 
 await db.execute(`
     CREATE TABLE IF NOT EXISTS messages (
@@ -73,14 +57,13 @@ io.on('connection', async (socket) => {
         let result
         const username = socket.handshake.auth.username ?? 'anonymous'
         const timestamp = new Date().toISOString()
-        console.log(`💬 Mensaje de ${username}: ${msg.substring(0, 50)}...`)
         try {
             result = await db.execute({
                 sql: 'INSERT INTO messages (content, user, created_at, type) VALUES (:msg, :username, :timestamp, :type)',
                 args: { msg, username, timestamp, type: 'text' }
             })
         } catch (e) {
-            console.error('❌ Error guardando mensaje:', e)
+            console.error(e)
             return
         }
         io.emit('chat message', msg, result.lastInsertRowid.toString(), username, timestamp)
@@ -91,14 +74,14 @@ io.on('connection', async (socket) => {
         let result
         const username = socket.handshake.auth.username ?? 'anonymous'
         const timestamp = new Date().toISOString()
-        console.log(`🖼️  Imagen de ${username}`)
+        console.log(`🖼️  ${username} envió una imagen`)
         try {
             result = await db.execute({
                 sql: 'INSERT INTO messages (content, user, created_at, type) VALUES (:imageData, :username, :timestamp, :type)',
                 args: { imageData, username, timestamp, type: 'image' }
             })
         } catch (e) {
-            console.error('❌ Error guardando imagen:', e)
+            console.error(e)
             return
         }
         io.emit('image message', imageData, result.lastInsertRowid.toString(), username, timestamp)
@@ -109,106 +92,48 @@ io.on('connection', async (socket) => {
         let result
         const username = socket.handshake.auth.username ?? 'anonymous'
         const timestamp = new Date().toISOString()
-        console.log(`🎤 Audio de ${username}`)
+        console.log(`🎤 ${username} envió un audio`)
         try {
             result = await db.execute({
                 sql: 'INSERT INTO messages (content, user, created_at, type) VALUES (:audioData, :username, :timestamp, :type)',
                 args: { audioData, username, timestamp, type: 'audio' }
             })
         } catch (e) {
-            console.error('❌ Error guardando audio:', e)
+            console.error(e)
             return
         }
         io.emit('audio message', audioData, result.lastInsertRowid.toString(), username, timestamp)
     })
 
-    // Crear sala de Daily.co
+    // Crear sala de Jitsi Meet (100% GRATIS, sin API Key)
     socket.on('create-call-room', async () => {
         const username = socket.handshake.auth.username ?? 'anonymous'
         
-        console.log('\n' + '='.repeat(60))
-        console.log('📞 SOLICITUD DE CREACIÓN DE SALA')
-        console.log('='.repeat(60))
-        console.log('👤 Usuario:', username)
-        console.log('🔑 API Key disponible:', DAILY_API_KEY ? 'SÍ ✅' : 'NO ❌')
+        console.log('📞 Creando sala de Jitsi para:', username)
         
-        if (!DAILY_API_KEY) {
-            console.error('❌ ERROR CRÍTICO: DAILY_API_KEY no está configurada')
-            socket.emit('error', 'Configuración del servidor incompleta. Contacta al administrador.')
-            console.log('='.repeat(60) + '\n')
-            return
-        }
+        // Generar nombre único para la sala
+        const roomName = `ExpoChat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        const roomUrl = `https://meet.jit.si/${roomName}`
         
-        try {
-            console.log('📡 Enviando petición a Daily.co API...')
-            
-            const requestBody = {
-                properties: {
-                    enable_screenshare: true,
-                    enable_chat: false,
-                    start_video_off: false,
-                    start_audio_off: false,
-                    max_participants: 10,
-                    exp: Math.floor(Date.now() / 1000) + (60 * 60 * 2) // Expira en 2 horas
-                }
-            }
-            
-            console.log('📦 Body de la petición:', JSON.stringify(requestBody, null, 2))
-            
-            const response = await fetch('https://api.daily.co/v1/rooms', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${DAILY_API_KEY}`
-                },
-                body: JSON.stringify(requestBody)
-            })
-            
-            console.log('📥 Status de respuesta:', response.status, response.statusText)
-            
-            const room = await response.json()
-            
-            console.log('📄 Respuesta completa de Daily.co:')
-            console.log(JSON.stringify(room, null, 2))
-            
-            if (room.url) {
-                console.log('✅ ¡SALA CREADA EXITOSAMENTE!')
-                console.log('🔗 URL de la sala:', room.url)
-                console.log('📛 Nombre de la sala:', room.name)
-                console.log('⏰ Expira:', new Date(room.config?.exp * 1000).toLocaleString())
-                
-                socket.emit('call-room-created', { 
-                    roomUrl: room.url,
-                    username 
-                })
-                
-                console.log('✉️  Evento "call-room-created" enviado al cliente')
-            } else {
-                console.error('❌ ERROR: No se recibió URL de sala')
-                console.error('Detalles del error:', room.error || 'Error desconocido')
-                console.error('Información adicional:', room.info || 'Sin información adicional')
-                
-                socket.emit('error', room.error || 'No se pudo crear la sala de llamada')
-            }
-        } catch (error) {
-            console.error('❌ EXCEPCIÓN AL CREAR SALA:')
-            console.error('Tipo:', error.name)
-            console.error('Mensaje:', error.message)
-            console.error('Stack:', error.stack)
-            
-            socket.emit('error', 'Error al crear la sala: ' + error.message)
-        }
+        console.log('✅ Sala creada:', roomUrl)
         
-        console.log('='.repeat(60) + '\n')
+        // Enviar URL de sala al cliente
+        socket.emit('call-room-created', { 
+            roomUrl: roomUrl,
+            roomName: roomName,
+            username: username
+        })
     })
 
     // Notificar llamada a todos
-    socket.on('notify-call', (roomUrl) => {
+    socket.on('notify-call', (data) => {
         const username = socket.handshake.auth.username ?? 'anonymous'
-        console.log(`📢 ${username} está notificando llamada con URL: ${roomUrl}`)
-        console.log(`   Enviando notificación a todos los demás clientes...`)
-        socket.broadcast.emit('call-notification', { roomUrl, username })
-        console.log(`   ✅ Notificación enviada`)
+        console.log(`📢 ${username} está notificando llamada`)
+        socket.broadcast.emit('call-notification', { 
+            roomUrl: data.roomUrl,
+            roomName: data.roomName,
+            username: username 
+        })
     })
 
     if (!socket.recovered) { // <- recuperase los mensajes sin conexión
@@ -217,7 +142,6 @@ io.on('connection', async (socket) => {
                 sql: 'SELECT id, content, user, created_at, type FROM messages WHERE id > ?',
                 args: [socket.handshake.auth.serverOffset ?? 0]
             })
-            console.log(`📨 Recuperando ${results.rows.length} mensajes para ${socket.handshake.auth.username}`)
             results.rows.forEach(row => {
                 const messageType = row.type || 'text'
                 if (messageType === 'text') {
@@ -229,7 +153,7 @@ io.on('connection', async (socket) => {
                 }
             })
         } catch (e) {
-            console.error('❌ Error recuperando mensajes:', e)
+            console.error(e)
         }
     }
 })
@@ -242,8 +166,6 @@ app.get('/', (req, res) => {
 })
 
 server.listen(port, () => {
-    console.log('\n' + '='.repeat(60))
-    console.log(`🟢 Servidor corriendo en puerto ${port}`)
-    console.log(`🌐 Accede en: http://localhost:${port}`)
-    console.log('='.repeat(60) + '\n')
+    console.log(`🚀 Servidor corriendo en puerto ${port}`)
+    console.log(`🌐 http://localhost:${port}`)
 })
