@@ -324,8 +324,8 @@ function joinCall(roomUrl, roomName) {
         callTab.style.display = 'flex'
         switchTab('call')
 
-        // Configuración SIMPLIFICADA para evitar restricciones
-        const domain = 'meet.jit.si'
+        // Usar 8x8.vc en lugar de meet.jit.si (sin restricciones de moderador)
+        const domain = '8x8.vc'
         const options = {
             roomName: roomName,
             width: '100%',
@@ -337,7 +337,13 @@ function joinCall(roomUrl, roomName) {
             configOverwrite: {
                 prejoinPageEnabled: false,
                 startWithAudioMuted: false,
-                startWithVideoMuted: true
+                startWithVideoMuted: true,
+                disableDeepLinking: true
+            },
+            interfaceConfigOverwrite: {
+                SHOW_JITSI_WATERMARK: false,
+                SHOW_WATERMARK_FOR_GUESTS: false,
+                MOBILE_APP_PROMO: false
             }
         }
 

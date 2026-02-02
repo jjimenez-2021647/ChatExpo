@@ -47,7 +47,7 @@ try {
 
 io.on('connection', async (socket) => {
     console.log('✅ Usuario conectado:', socket.handshake.auth.username ?? 'anonymous')
-    
+
     socket.on('disconnect', () => {
         console.log('❌ Usuario desconectado:', socket.handshake.auth.username ?? 'anonymous')
     })
@@ -105,20 +105,20 @@ io.on('connection', async (socket) => {
         io.emit('audio message', audioData, result.lastInsertRowid.toString(), username, timestamp)
     })
 
-    // Crear sala de Jitsi Meet (100% GRATIS, sin API Key)
+    // Crear sala de Jitsi Meet (usando 8x8.vc - sin restricciones)
     socket.on('create-call-room', async () => {
         const username = socket.handshake.auth.username ?? 'anonymous'
-        
+
         console.log('📞 Creando sala de Jitsi para:', username)
-        
-        // Generar nombre SIMPLE sin guiones ni prefijos (esto evita restricciones de moderador)
+
+        // Generar nombre único y simple
         const roomName = `expochat${Date.now()}${Math.random().toString(36).substr(2, 6)}`
-        const roomUrl = `https://meet.jit.si/${roomName}`
-        
+        const roomUrl = `https://8x8.vc/${roomName}`
+
         console.log('✅ Sala creada:', roomUrl)
-        
+
         // Enviar URL de sala al cliente
-        socket.emit('call-room-created', { 
+        socket.emit('call-room-created', {
             roomUrl: roomUrl,
             roomName: roomName,
             username: username
@@ -129,10 +129,10 @@ io.on('connection', async (socket) => {
     socket.on('notify-call', (data) => {
         const username = socket.handshake.auth.username ?? 'anonymous'
         console.log(`📢 ${username} está notificando llamada`)
-        socket.broadcast.emit('call-notification', { 
+        socket.broadcast.emit('call-notification', {
             roomUrl: data.roomUrl,
             roomName: data.roomName,
-            username: username 
+            username: username
         })
     })
 
