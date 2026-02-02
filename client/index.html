@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ExpoChat</title>
   <link rel="stylesheet" href="./styles/index.css">
-  <!-- Daily.co SDK -->
-  <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
+  <!-- Daily.co SDK - IMPORTANTE: sin crossorigin y antes del script principal -->
+  <script src="https://unpkg.com/@daily-co/daily-js"></script>
 </head>
 <body>
   <section id="chat">
@@ -31,7 +31,7 @@
       <button type="submit" id="send-btn">Enviar</button>
     </form>
   </section>
-
+  
   <!-- Modal de llamada entrante -->
   <div id="call-modal-overlay" class="call-modal-overlay">
     <div class="call-modal">
@@ -50,12 +50,16 @@
       </div>
     </div>
   </div>
-
+  
   <!-- Contenedor para la llamada -->
-  <div id="call-container" style="display: none;">
+  <div id="call-container" class="call-container">
+    <div class="call-header">
+      <span>Llamada en progreso</span>
+      <button id="end-call-btn" class="end-call-btn">Colgar</button>
+    </div>
     <div id="call-frame"></div>
   </div>
-
+  
   <script type="module" src="./scripts/indexClient.js"></script>
 </body>
 </html>

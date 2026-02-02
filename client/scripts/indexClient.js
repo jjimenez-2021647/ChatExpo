@@ -298,13 +298,20 @@ rejectCallBtn.addEventListener('click', () => {
 // Función para unirse a una llamada
 async function joinCall(roomUrl) {
     try {
+        // Verificar que Daily esté cargado
+        if (!window.DailyIframe) {
+            console.error('Daily.co SDK no está cargado')
+            alert('Error: SDK de videollamadas no disponible')
+            return
+        }
+
         inCall = true
         callBtn.classList.add('in-call')
         callBtn.textContent = '📵'
         callBtn.title = 'Salir de la llamada'
         
         // Mostrar contenedor de llamada
-        callContainer.style.display = 'block'
+        callContainer.style.display = 'flex'
         
         // Crear instancia de Daily
         dailyCall = window.DailyIframe.createFrame(callFrame, {
@@ -313,19 +320,25 @@ async function joinCall(roomUrl) {
             iframeStyle: {
                 width: '100%',
                 height: '100%',
-                border: '0'
+                border: '0',
+                borderRadius: '8px'
             }
         })
         
         // Eventos de Daily
         dailyCall.on('left-meeting', () => {
+            console.log('Usuario salió de la reunión')
             endCall()
         })
         
         dailyCall.on('error', (error) => {
             console.error('Daily error:', error)
-            alert('Error en la llamada')
+            alert('Error en la llamada: ' + error.errorMsg)
             endCall()
+        })
+
+        dailyCall.on('joined-meeting', () => {
+            console.log('✅ Unido exitosamente a la llamada')
         })
         
         // Unirse a la sala
@@ -334,11 +347,11 @@ async function joinCall(roomUrl) {
             userName: myUsername
         })
         
-        console.log('Unido a la llamada')
+        console.log('Intentando unirse a:', roomUrl)
         
     } catch (error) {
         console.error('Error al unirse a la llamada:', error)
-        alert('No se pudo unir a la llamada')
+        alert('No se pudo unir a la llamada: ' + error.message)
         endCall()
     }
 }
