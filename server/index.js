@@ -111,8 +111,8 @@ io.on('connection', async (socket) => {
         
         console.log('📞 Creando sala de Jitsi para:', username)
         
-        // Generar nombre único para la sala
-        const roomName = `ExpoChat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        // Generar nombre SIMPLE sin guiones ni prefijos (esto evita restricciones de moderador)
+        const roomName = `expochat${Date.now()}${Math.random().toString(36).substr(2, 6)}`
         const roomUrl = `https://meet.jit.si/${roomName}`
         
         console.log('✅ Sala creada:', roomUrl)

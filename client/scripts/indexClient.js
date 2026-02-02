@@ -324,7 +324,7 @@ function joinCall(roomUrl, roomName) {
         callTab.style.display = 'flex'
         switchTab('call')
 
-        // Configuración de Jitsi SIN moderador
+        // Configuración SIMPLIFICADA para evitar restricciones
         const domain = 'meet.jit.si'
         const options = {
             roomName: roomName,
@@ -335,30 +335,9 @@ function joinCall(roomUrl, roomName) {
                 displayName: myUsername
             },
             configOverwrite: {
-                startWithAudioMuted: false,
-                startWithVideoMuted: false,
                 prejoinPageEnabled: false,
-                disableDeepLinking: true,
-                // CRÍTICO: Deshabilitar moderadores
-                enableUserRolesBasedOnToken: false,
-                disableModeratorIndicator: true,
-                startAudioOnly: false,
-                startVideoMuted: false
-            },
-            interfaceConfigOverwrite: {
-                SHOW_JITSI_WATERMARK: false,
-                SHOW_WATERMARK_FOR_GUESTS: false,
-                SHOW_BRAND_WATERMARK: false,
-                MOBILE_APP_PROMO: false,
-                TOOLBAR_BUTTONS: [
-                    'microphone', 'camera', 'closedcaptions', 'desktop',
-                    'fullscreen', 'fodeviceselection', 'hangup',
-                    'chat', 'recording', 'livestreaming', 'etherpad',
-                    'sharedvideo', 'settings', 'raisehand',
-                    'videoquality', 'filmstrip', 'invite',
-                    'feedback', 'stats', 'shortcuts',
-                    'tileview', 'videobackgroundblur', 'download', 'help'
-                ]
+                startWithAudioMuted: false,
+                startWithVideoMuted: true
             }
         }
 
