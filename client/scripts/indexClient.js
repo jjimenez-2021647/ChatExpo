@@ -309,7 +309,7 @@ rejectCallBtn.addEventListener('click', () => {
 function joinCall(roomUrl, roomName) {
     try {
         console.log('📞 Uniéndose a llamada de Jitsi:', roomName)
-        
+
         if (typeof JitsiMeetExternalAPI === 'undefined') {
             console.error('❌ Jitsi API no cargada')
             alert('Error: API de Jitsi no disponible')
@@ -320,11 +320,11 @@ function joinCall(roomUrl, roomName) {
         callBtn.classList.add('in-call')
         callBtn.textContent = '📵'
         callBtn.disabled = false
-        
+
         callTab.style.display = 'flex'
         switchTab('call')
-        
-        // Configuración de Jitsi
+
+        // Configuración de Jitsi SIN moderador
         const domain = 'meet.jit.si'
         const options = {
             roomName: roomName,
@@ -338,34 +338,48 @@ function joinCall(roomUrl, roomName) {
                 startWithAudioMuted: false,
                 startWithVideoMuted: false,
                 prejoinPageEnabled: false,
-                disableDeepLinking: true
+                disableDeepLinking: true,
+                // CRÍTICO: Deshabilitar moderadores
+                enableUserRolesBasedOnToken: false,
+                disableModeratorIndicator: true,
+                startAudioOnly: false,
+                startVideoMuted: false
             },
             interfaceConfigOverwrite: {
                 SHOW_JITSI_WATERMARK: false,
                 SHOW_WATERMARK_FOR_GUESTS: false,
                 SHOW_BRAND_WATERMARK: false,
-                MOBILE_APP_PROMO: false
+                MOBILE_APP_PROMO: false,
+                TOOLBAR_BUTTONS: [
+                    'microphone', 'camera', 'closedcaptions', 'desktop',
+                    'fullscreen', 'fodeviceselection', 'hangup',
+                    'chat', 'recording', 'livestreaming', 'etherpad',
+                    'sharedvideo', 'settings', 'raisehand',
+                    'videoquality', 'filmstrip', 'invite',
+                    'feedback', 'stats', 'shortcuts',
+                    'tileview', 'videobackgroundblur', 'download', 'help'
+                ]
             }
         }
-        
+
         jitsiAPI = new JitsiMeetExternalAPI(domain, options)
-        
+
         jitsiAPI.addEventListener('videoConferenceJoined', () => {
             console.log('✅ Unido a la videollamada')
         })
-        
+
         jitsiAPI.addEventListener('videoConferenceLeft', () => {
             console.log('🚪 Saliste de la videollamada')
             endCall()
         })
-        
+
         jitsiAPI.addEventListener('readyToClose', () => {
             console.log('🔚 Ventana de Jitsi cerrada')
             endCall()
         })
-        
+
         console.log('✅ Jitsi inicializado')
-        
+
     } catch (error) {
         console.error('❌ Error al unirse:', error)
         alert('No se pudo unir a la llamada: ' + error.message)
@@ -375,7 +389,7 @@ function joinCall(roomUrl, roomName) {
 
 function endCall() {
     console.log('📵 Finalizando llamada')
-    
+
     if (jitsiAPI) {
         try {
             jitsiAPI.dispose()
@@ -384,18 +398,18 @@ function endCall() {
         }
         jitsiAPI = null
     }
-    
+
     callFrame.innerHTML = ''
     callTab.style.display = 'none'
     switchTab('messages')
-    
+
     currentRoomUrl = null
     currentRoomName = null
     inCall = false
     callBtn.classList.remove('in-call')
     callBtn.textContent = '📞'
     callBtn.disabled = false
-    
+
     console.log('✅ Llamada finalizada')
 }
 
