@@ -1,23 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ExpoChat</title>
   <link rel="stylesheet" href="./styles/index.css">
 </head>
-
 <body>
   <section id="chat">
+    <div class="chat-header">
+      <span class="chat-title">ExpoChat</span>
+      <button id="call-btn" class="call-btn" title="Iniciar llamada">
+        📞
+      </button>
+    </div>
     <ul id="messages"></ul>
     <form id="form">
+      <button type="button" id="attach-btn" class="icon-btn" title="Adjuntar imagen">
+        📎
+      </button>
+      <input type="file" id="file-input" accept="image/*" style="display: none;">
+      
       <input type="text" name="message" id="input" placeholder="Type a message" autocomplete="off" />
-      <button type="submit">Enviar</button>
+      
+      <button type="button" id="mic-btn" class="icon-btn" title="Grabar audio">
+        🎤
+      </button>
+      <button type="submit" id="send-btn">Enviar</button>
     </form>
   </section>
 
+  <!-- Modal de llamada entrante -->
+  <div id="call-modal-overlay" class="call-modal-overlay">
+    <div class="call-modal">
+      <div class="call-modal-icon">📞</div>
+      <h3 class="call-modal-title">Llamada entrante</h3>
+      <p class="call-modal-subtitle">
+        <span class="call-modal-username" id="caller-name"></span> te está llamando
+      </p>
+      <div class="call-modal-actions">
+        <button id="accept-call-btn" class="call-modal-btn accept">
+          ✓ Aceptar
+        </button>
+        <button id="reject-call-btn" class="call-modal-btn reject">
+          ✕ Rechazar
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script type="module" src="./scripts/indexClient.js"></script>
 </body>
-
 </html>
