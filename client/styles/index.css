@@ -714,3 +714,332 @@ body {
   width: 100%;
   height: 100%;
 }
+
+/* CSS para el sistema de llamadas de ExpoChat */
+
+/* Contenedor principal de la llamada */
+.call-container {
+    display: none; /* Oculto por defecto */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.98);
+    z-index: 9999;
+    flex-direction: column;
+}
+
+.call-container.active {
+    display: flex;
+}
+
+/* Header de la llamada */
+.call-header {
+    padding: 1rem 2rem;
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.call-header span {
+    font-size: 1.1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.call-header span::before {
+    content: '🔴';
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+/* Botón de colgar */
+.end-call-btn {
+    background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4);
+}
+
+.end-call-btn:hover {
+    background: linear-gradient(135deg, #ff6666 0%, #ff0000 100%);
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px rgba(255, 68, 68, 0.6);
+}
+
+.end-call-btn:active {
+    transform: scale(0.95);
+}
+
+/* Frame de Daily.co */
+#call-frame {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    background: #000;
+}
+
+/* Botón de llamada en el header del chat */
+.call-btn {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 1.2rem;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 10px rgba(76, 175, 80, 0.3);
+}
+
+.call-btn:hover {
+    background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%);
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.5);
+}
+
+.call-btn:active {
+    transform: scale(0.95);
+}
+
+.call-btn.in-call {
+    background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+    animation: callPulse 2s ease-in-out infinite;
+}
+
+@keyframes callPulse {
+    0%, 100% {
+        box-shadow: 0 2px 10px rgba(255, 68, 68, 0.3);
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(255, 68, 68, 0.6);
+    }
+}
+
+/* Modal de llamada entrante */
+.call-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(5px);
+    animation: fadeIn 0.3s ease;
+}
+
+.call-modal-overlay.active {
+    display: flex;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.call-modal {
+    background: linear-gradient(135deg, #ffffff 0%, #f5f5f5 100%);
+    border-radius: 20px;
+    padding: 2.5rem;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.call-modal-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    animation: ringRing 1.5s ease-in-out infinite;
+}
+
+@keyframes ringRing {
+    0%, 100% {
+        transform: rotate(0deg);
+    }
+    10%, 30% {
+        transform: rotate(-15deg);
+    }
+    20%, 40% {
+        transform: rotate(15deg);
+    }
+    50% {
+        transform: rotate(0deg);
+    }
+}
+
+.call-modal-title {
+    font-size: 1.8rem;
+    margin: 0 0 0.5rem 0;
+    color: #333;
+    font-weight: 700;
+}
+
+.call-modal-subtitle {
+    font-size: 1.1rem;
+    color: #666;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+}
+
+.call-modal-username {
+    font-weight: 700;
+    color: #4CAF50;
+}
+
+.call-modal-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.call-modal-btn {
+    flex: 1;
+    padding: 1rem 1.5rem;
+    border: none;
+    border-radius: 25px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.call-modal-btn.accept {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(76, 175, 80, 0.4);
+}
+
+.call-modal-btn.accept:hover {
+    background: linear-gradient(135deg, #66BB6A 0%, #4CAF50 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.6);
+}
+
+.call-modal-btn.reject {
+    background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(244, 67, 54, 0.4);
+}
+
+.call-modal-btn.reject:hover {
+    background: linear-gradient(135deg, #ef5350 0%, #f44336 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(244, 67, 54, 0.6);
+}
+
+.call-modal-btn:active {
+    transform: translateY(0) scale(0.95);
+}
+
+/* Estilos responsive */
+@media (max-width: 768px) {
+    .call-header {
+        padding: 0.8rem 1rem;
+    }
+    
+    .call-header span {
+        font-size: 0.9rem;
+    }
+    
+    .end-call-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .call-modal {
+        padding: 2rem 1.5rem;
+        max-width: 90%;
+    }
+    
+    .call-modal-title {
+        font-size: 1.5rem;
+    }
+    
+    .call-modal-subtitle {
+        font-size: 1rem;
+    }
+    
+    .call-modal-actions {
+        flex-direction: column;
+    }
+    
+    .call-modal-btn {
+        width: 100%;
+    }
+}
+
+/* Estilos adicionales para el chat header */
+.chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.chat-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+/* Loading spinner para cuando se crea la sala */
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.call-btn.loading::after {
+    content: '';
+    display: inline-block;
+    width: 1rem;
+    height: 1rem;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-left: 0.5rem;
+}

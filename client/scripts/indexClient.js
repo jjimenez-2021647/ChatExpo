@@ -24,6 +24,7 @@ const getUsername = () => {
 }
 
 const myUsername = getUsername()
+console.log('👤 Mi usuario:', myUsername)
 
 const socket = io({
     auth: {
@@ -56,6 +57,21 @@ const acceptCallBtn = document.getElementById('accept-call-btn')
 const rejectCallBtn = document.getElementById('reject-call-btn')
 const callContainer = document.getElementById('call-container')
 const callFrame = document.getElementById('call-frame')
+const endCallBtn = document.getElementById('end-call-btn')
+
+// Logging de conexión
+socket.on('connect', () => {
+    console.log('✅ Conectado al servidor')
+})
+
+socket.on('disconnect', () => {
+    console.log('❌ Desconectado del servidor')
+})
+
+socket.on('error', (errorMsg) => {
+    console.error('❌ Error del servidor:', errorMsg)
+    alert('Error: ' + errorMsg)
+})
 
 // Formatea el timestamp como "Hoy HH:MM", "Ayer HH:MM" o "DD/MM/YYYY HH:MM"
 const formatTimestamp = (isoString) => {
@@ -252,8 +268,20 @@ micBtn.addEventListener('click', async () => {
 // Botón de llamada
 callBtn.addEventListener('click', async () => {
     if (!inCall) {
+        console.log('📞 Solicitando crear sala...')
+        callBtn.disabled = true
+        callBtn.textContent = '⏳'
+        
         // Solicitar crear una sala
         socket.emit('create-call-room')
+        
+        // Timeout de seguridad
+        setTimeout(() => {
+            if (!inCall) {
+                callBtn.disabled = false
+                callBtn.textContent = '📞'
+            }
+        }, 10000) // 10 segundos
     } else {
         // Salir de la llamada
         endCall()
@@ -262,27 +290,38 @@ callBtn.addEventListener('click', async () => {
 
 // Recibir URL de sala creada
 socket.on('call-room-created', ({ roomUrl, username }) => {
-    console.log('Sala creada:', roomUrl)
+    console.log('✅ Sala creada recibida:', roomUrl)
     currentRoomUrl = roomUrl
     
+    // Re-habilitar botón
+    callBtn.disabled = false
+    
     // Notificar a todos sobre la llamada
+    console.log('📢 Notificando a otros usuarios...')
     socket.emit('notify-call', roomUrl)
     
     // Unirse automáticamente
+    console.log('🚀 Uniéndome a la llamada...')
     joinCall(roomUrl)
 })
 
 // Recibir notificación de llamada
 socket.on('call-notification', ({ roomUrl, username }) => {
+    console.log('🔔 Notificación de llamada de:', username)
+    console.log('   URL:', roomUrl)
+    
     if (!inCall) {
         currentRoomUrl = roomUrl
         callerNameEl.textContent = username
         callModalOverlay.classList.add('active')
+    } else {
+        console.log('   Ya estoy en una llamada, ignorando notificación')
     }
 })
 
 // Aceptar llamada
 acceptCallBtn.addEventListener('click', () => {
+    console.log('✅ Aceptando llamada...')
     callModalOverlay.classList.remove('active')
     if (currentRoomUrl) {
         joinCall(currentRoomUrl)
@@ -291,29 +330,50 @@ acceptCallBtn.addEventListener('click', () => {
 
 // Rechazar llamada
 rejectCallBtn.addEventListener('click', () => {
+    console.log('❌ Rechazando llamada')
     callModalOverlay.classList.remove('active')
     currentRoomUrl = null
 })
 
+// Botón de colgar en el header de la llamada
+if (endCallBtn) {
+    endCallBtn.addEventListener('click', () => {
+        console.log('📵 Botón colgar presionado')
+        endCall()
+    })
+}
+
 // Función para unirse a una llamada
 async function joinCall(roomUrl) {
     try {
+        console.log('\n' + '='.repeat(60))
+        console.log('📞 INICIANDO PROCESO DE UNIÓN A LLAMADA')
+        console.log('='.repeat(60))
+        console.log('🔗 URL:', roomUrl)
+        console.log('👤 Usuario:', myUsername)
+        
         // Verificar que Daily esté cargado
         if (!window.DailyIframe) {
-            console.error('Daily.co SDK no está cargado')
-            alert('Error: SDK de videollamadas no disponible')
+            console.error('❌ ERROR: Daily.co SDK no está cargado')
+            console.log('   Verifica que el script esté en el HTML')
+            alert('Error: SDK de videollamadas no disponible. Recarga la página.')
             return
         }
-
+        
+        console.log('✅ SDK de Daily.co cargado correctamente')
+        
         inCall = true
         callBtn.classList.add('in-call')
         callBtn.textContent = '📵'
         callBtn.title = 'Salir de la llamada'
+        callBtn.disabled = false
         
         // Mostrar contenedor de llamada
         callContainer.style.display = 'flex'
+        console.log('✅ Contenedor de llamada mostrado')
         
         // Crear instancia de Daily
+        console.log('🔧 Creando frame de Daily.co...')
         dailyCall = window.DailyIframe.createFrame(callFrame, {
             showLeaveButton: true,
             showFullscreenButton: true,
@@ -325,32 +385,62 @@ async function joinCall(roomUrl) {
             }
         })
         
+        console.log('✅ Frame creado')
+        
         // Eventos de Daily
+        dailyCall.on('joined-meeting', (event) => {
+            console.log('✅ ¡UNIDO A LA REUNIÓN!')
+            console.log('   Participantes:', event.participants)
+        })
+        
+        dailyCall.on('participant-joined', (event) => {
+            console.log('👤 Participante se unió:', event.participant.user_name)
+        })
+        
+        dailyCall.on('participant-left', (event) => {
+            console.log('👋 Participante salió:', event.participant.user_name)
+        })
+        
         dailyCall.on('left-meeting', () => {
-            console.log('Usuario salió de la reunión')
+            console.log('🚪 Saliste de la reunión')
             endCall()
         })
         
         dailyCall.on('error', (error) => {
-            console.error('Daily error:', error)
+            console.error('❌ Error de Daily.co:')
+            console.error('   Tipo:', error.errorMsg)
+            console.error('   Detalles:', error)
             alert('Error en la llamada: ' + error.errorMsg)
             endCall()
         })
-
-        dailyCall.on('joined-meeting', () => {
-            console.log('✅ Unido exitosamente a la llamada')
+        
+        dailyCall.on('loading', (event) => {
+            console.log('⏳ Cargando...', event)
+        })
+        
+        dailyCall.on('loaded', (event) => {
+            console.log('✅ Frame cargado')
         })
         
         // Unirse a la sala
+        console.log('🚀 Intentando unirse a la sala...')
         await dailyCall.join({ 
             url: roomUrl,
             userName: myUsername
         })
         
-        console.log('Intentando unirse a:', roomUrl)
+        console.log('✅ Comando join() ejecutado')
+        console.log('='.repeat(60) + '\n')
         
     } catch (error) {
-        console.error('Error al unirse a la llamada:', error)
+        console.error('\n' + '='.repeat(60))
+        console.error('❌ ERROR AL UNIRSE A LA LLAMADA')
+        console.error('='.repeat(60))
+        console.error('Tipo:', error.name)
+        console.error('Mensaje:', error.message)
+        console.error('Stack:', error.stack)
+        console.error('='.repeat(60) + '\n')
+        
         alert('No se pudo unir a la llamada: ' + error.message)
         endCall()
     }
@@ -358,10 +448,18 @@ async function joinCall(roomUrl) {
 
 // Función para terminar llamada
 function endCall() {
-    console.log('Finalizando llamada...')
+    console.log('\n' + '='.repeat(60))
+    console.log('📵 FINALIZANDO LLAMADA')
+    console.log('='.repeat(60))
     
     if (dailyCall) {
-        dailyCall.destroy()
+        console.log('🔧 Destruyendo instancia de Daily.co...')
+        try {
+            dailyCall.destroy()
+            console.log('✅ Instancia destruida')
+        } catch (error) {
+            console.error('❌ Error al destruir instancia:', error)
+        }
         dailyCall = null
     }
     
@@ -371,4 +469,17 @@ function endCall() {
     callBtn.classList.remove('in-call')
     callBtn.textContent = '📞'
     callBtn.title = 'Iniciar llamada grupal'
+    callBtn.disabled = false
+    
+    console.log('✅ Llamada finalizada correctamente')
+    console.log('='.repeat(60) + '\n')
 }
+
+// Log de inicio
+console.log('\n' + '='.repeat(60))
+console.log('🚀 EXPOCHAT CLIENTE INICIADO')
+console.log('='.repeat(60))
+console.log('👤 Usuario:', myUsername)
+console.log('🔌 Estado de conexión:', socket.connected ? 'Conectado' : 'Desconectado')
+console.log('📱 Daily.co SDK:', window.DailyIframe ? 'Cargado ✅' : 'No cargado ❌')
+console.log('='.repeat(60) + '\n')
