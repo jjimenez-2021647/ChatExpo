@@ -324,7 +324,7 @@ function joinCall(roomUrl, roomName) {
         callTab.style.display = 'flex'
         switchTab('call')
         
-        // Configuración simplificada - sin moderador
+        // Configuración de Jitsi
         const domain = 'meet.jit.si'
         const options = {
             roomName: roomName,
