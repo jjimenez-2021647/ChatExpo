@@ -64,6 +64,38 @@ const acceptCallBtn = document.getElementById('accept-call-btn')
 const rejectCallBtn = document.getElementById('reject-call-btn')
 const callFrame = document.getElementById('call-frame')
 
+// ========== PEGAR IMÁGENES DESDE PORTAPAPELES ==========
+input.addEventListener('paste', async (e) => {
+    const items = e.clipboardData.items
+    
+    for (let item of items) {
+        if (item.type.startsWith('image/')) {
+            e.preventDefault()
+            const file = item.getAsFile()
+            
+            if (file.size > 50 * 1024 * 1024) { // 50MB
+                alert('La imagen es muy grande. Máximo 50MB')
+                return
+            }
+            
+            console.log(`📋 Procesando imagen pegada (${(file.size / 1024 / 1024).toFixed(2)}MB)...`)
+            
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                const imageData = event.target.result
+                socket.emit('image message', imageData)
+                console.log('✅ Imagen pegada y enviada')
+            }
+            reader.onerror = () => {
+                alert('Error al leer la imagen del portapapeles')
+                console.error('❌ Error leyendo imagen del portapapeles')
+            }
+            reader.readAsDataURL(file)
+            break
+        }
+    }
+})
+
 // ========== SISTEMA DE TABS ==========
 tabBtns.forEach(btn => {
     btn.addEventListener('click', () => {
@@ -145,7 +177,7 @@ function renderImageMessage(imageData, serverOffset, username, timestamp) {
     const item = `<li class="${isOwn ? 'own' : 'other'}">
         ${isOwn ? '' : `<small>${username}</small>`}
         <div class="message-image-container">
-            <img src="${imageData}" class="message-image" alt="Imagen compartida" />
+            <img src="${imageData}" class="message-image" alt="Imagen compartida" loading="lazy" />
         </div>
         ${formattedTime ? `<span class="timestamp">${formattedTime}</span>` : ''}
     </li>`
@@ -160,9 +192,12 @@ function renderAudioMessage(audioData, serverOffset, username, timestamp) {
     const item = `<li class="${isOwn ? 'own' : 'other'}">
         ${isOwn ? '' : `<small>${username}</small>`}
         <div class="message-audio">
-            <audio controls>
+            <audio controls preload="metadata">
+                <source src="${audioData}" type="audio/webm;codecs=opus">
                 <source src="${audioData}" type="audio/webm">
-                Tu navegador no soporta audio.
+                <source src="${audioData}" type="audio/ogg">
+                <source src="${audioData}" type="audio/mp4">
+                Tu navegador no soporta la reproducción de audio.
             </audio>
         </div>
         ${formattedTime ? `<span class="timestamp">${formattedTime}</span>` : ''}
@@ -186,8 +221,8 @@ socket.on('audio message', (audioData, serverOffset, username, timestamp) => {
 
 form.addEventListener('submit', (e) => {
     e.preventDefault()
-    if (input.value) {
-        socket.emit('chat message', input.value)
+    if (input.value.trim()) {
+        socket.emit('chat message', input.value.trim())
         input.value = ''
     }
 })
@@ -199,18 +234,28 @@ attachBtn.addEventListener('click', () => {
 fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0]
     if (!file) return
+    
     if (!file.type.startsWith('image/')) {
         alert('Por favor selecciona una imagen válida')
         return
     }
-    if (file.size > 5 * 1024 * 1024) {
-        alert('La imagen es muy grande. Máximo 5MB')
+    
+    if (file.size > 50 * 1024 * 1024) { // 50MB
+        alert('La imagen es muy grande. Máximo 50MB')
         return
     }
+    
+    console.log(`📎 Procesando imagen (${(file.size / 1024 / 1024).toFixed(2)}MB)...`)
+    
     const reader = new FileReader()
     reader.onload = (event) => {
         const imageData = event.target.result
         socket.emit('image message', imageData)
+        console.log('✅ Imagen enviada correctamente')
+    }
+    reader.onerror = () => {
+        alert('Error al leer la imagen')
+        console.error('❌ Error leyendo la imagen')
     }
     reader.readAsDataURL(file)
     fileInput.value = ''
@@ -219,37 +264,90 @@ fileInput.addEventListener('change', (e) => {
 micBtn.addEventListener('click', async () => {
     if (!isRecording) {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            mediaRecorder = new MediaRecorder(stream)
-            audioChunks = []
-            mediaRecorder.ondataavailable = (event) => {
-                audioChunks.push(event.data)
+            const stream = await navigator.mediaDevices.getUserMedia({ 
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    autoGainControl: true
+                }
+            })
+            
+            // Intentar usar el mejor codec disponible
+            let options = {}
+            if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
+                options = { mimeType: 'audio/webm;codecs=opus' }
+                console.log('🎤 Usando codec: Opus')
+            } else if (MediaRecorder.isTypeSupported('audio/webm')) {
+                options = { mimeType: 'audio/webm' }
+                console.log('🎤 Usando codec: WebM')
+            } else if (MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')) {
+                options = { mimeType: 'audio/ogg;codecs=opus' }
+                console.log('🎤 Usando codec: OGG Opus')
+            } else {
+                console.log('🎤 Usando codec por defecto')
             }
+            
+            mediaRecorder = new MediaRecorder(stream, options)
+            audioChunks = []
+            
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunks.push(event.data)
+                }
+            }
+            
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' })
+                const mimeType = mediaRecorder.mimeType || 'audio/webm'
+                const audioBlob = new Blob(audioChunks, { type: mimeType })
+                
+                console.log(`🎤 Audio grabado: ${(audioBlob.size / 1024).toFixed(2)}KB, ${mimeType}`)
+                
                 const reader = new FileReader()
                 reader.onload = (event) => {
                     const audioData = event.target.result
                     socket.emit('audio message', audioData)
+                    console.log('✅ Audio enviado correctamente')
+                }
+                reader.onerror = () => {
+                    alert('Error al procesar el audio')
+                    console.error('❌ Error procesando el audio')
                 }
                 reader.readAsDataURL(audioBlob)
+                
+                // Detener todos los tracks de audio
                 stream.getTracks().forEach(track => track.stop())
             }
+            
+            mediaRecorder.onerror = (event) => {
+                console.error('❌ Error en MediaRecorder:', event.error)
+                alert('Error durante la grabación')
+            }
+            
             mediaRecorder.start()
             isRecording = true
             micBtn.classList.add('recording')
             micBtn.textContent = '⏹️'
             micBtn.title = 'Detener grabación'
+            console.log('🎤 Grabación iniciada...')
         } catch (error) {
-            console.error('Error al acceder al micrófono:', error)
-            alert('No se pudo acceder al micrófono. Verifica los permisos.')
+            console.error('❌ Error al acceder al micrófono:', error)
+            if (error.name === 'NotAllowedError') {
+                alert('Permiso de micrófono denegado. Por favor, permite el acceso al micrófono.')
+            } else if (error.name === 'NotFoundError') {
+                alert('No se encontró ningún micrófono.')
+            } else {
+                alert('No se pudo acceder al micrófono: ' + error.message)
+            }
         }
     } else {
-        mediaRecorder.stop()
-        isRecording = false
-        micBtn.classList.remove('recording')
-        micBtn.textContent = '🎤'
-        micBtn.title = 'Grabar audio'
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop()
+            isRecording = false
+            micBtn.classList.remove('recording')
+            micBtn.textContent = '🎤'
+            micBtn.title = 'Grabar audio'
+            console.log('⏹️ Grabación detenida')
+        }
     }
 })
 
@@ -324,7 +422,6 @@ function joinCall(roomUrl, roomName) {
         callTab.style.display = 'flex'
         switchTab('call')
 
-        // Usar 8x8.vc en lugar de meet.jit.si (sin restricciones de moderador)
         const domain = '8x8.vc'
         const options = {
             roomName: roomName,
@@ -401,3 +498,8 @@ function endCall() {
 console.log('🚀 Cliente iniciado con Jitsi Meet')
 console.log('👤 Usuario:', myUsername)
 console.log('📱 Jitsi API:', typeof JitsiMeetExternalAPI !== 'undefined' ? '✅' : '❌')
+console.log('📋 Funcionalidades disponibles:')
+console.log('   • Pegar imágenes: Ctrl+V (hasta 50MB)')
+console.log('   • Adjuntar imágenes: 📎 (hasta 50MB)')
+console.log('   • Grabar audio: 🎤')
+console.log('   • Videollamadas: 📞')

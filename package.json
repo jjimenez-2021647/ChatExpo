@@ -12,9 +12,10 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@libsql/client": "^0.17.0",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "mongodb": "^7.0.0",
+    "mongoose": "^9.1.5",
     "morgan": "1.10.1",
     "node-fetch": "^3.3.2",
     "socket.io": "4.8.3"
